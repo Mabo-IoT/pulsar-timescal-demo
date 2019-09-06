@@ -1,0 +1,80 @@
+version: '3'
+
+services:
+  standalone:
+    image: apachepulsar/pulsar
+    expose:
+      - 8080
+      - 6650 
+    ports:
+      - 6650:6650
+    # environment:
+    #   - PULSAR_MEM=" -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"
+    volumes:
+      - pulsar-data:/pulsar/data
+    command: bin/pulsar standalone
+    networks:
+      - pulsar
+  
+  dashboard:
+    image: apachepulsar/pulsar-dashboard
+    depends_on:
+      - standalone
+    ports:
+      - "80:80"
+    environment:
+      - SERVICE_URL=http://standalone:8080
+    networks:
+      - pulsar
+
+  grafana:
+    hostname: grafana
+    image: grafana/grafana:latest
+    networks:
+      - pulsar
+    expose:
+      - 3000
+    ports:
+      - 3002:3000
+
+  timescaledb:
+    hostname: postgres
+    image: timescale/timescaledb:latest-pg11
+    volumes:
+      - timescale-pulsar:/var/lib/postgresql/data
+      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      pulsar:
+        aliases:
+          - postgres
+    expose:
+      - 5432
+    ports:
+      - 55436:5432
+  
+  # go-collect:
+  #   image: go-collect:latest
+  #   networks: 
+  #     timescale:
+  #   depends_on:
+  #     - kafka
+  
+  # go-sender:
+  #   image: go-sender:latest
+  #   networks:
+  #     timescale:
+  #   depends_on:
+  #     - kafka
+  #     - timescaledb
+  #     - go-collect
+  #   volumes:
+  #     - ./go-sender/conf/conf.toml:/go/src/github.com/mabo-iot/go-sender/conf/conf.toml
+
+
+volumes:
+  timescale-pulsar:
+  pulsar-data:
+
+networks:
+  pulsar:
+    
